@@ -1060,6 +1060,15 @@ class LTXConditionPipeline(DiffusionPipeline, FromSingleFileMixin, LTXVideoLoraL
         latent_num_frames = (num_frames - 1) // self.vae_temporal_compression_ratio + 1
         latent_height = height // self.vae_spatial_compression_ratio
         latent_width = width // self.vae_spatial_compression_ratio
+        video_sequence_length = latent_num_frames * latent_height * latent_width
+        mu = calculate_shift(
+            video_sequence_length,
+            self.scheduler.config.get("base_image_seq_len", 256),
+            self.scheduler.config.get("max_image_seq_len", 4096),
+            self.scheduler.config.get("base_shift", 0.5),
+            self.scheduler.config.get("max_shift", 1.15),
+        )
+        
         sigmas = linear_quadratic_schedule(num_inference_steps)
         timesteps = sigmas * 1000
         timesteps, num_inference_steps = retrieve_timesteps(
@@ -1067,6 +1076,7 @@ class LTXConditionPipeline(DiffusionPipeline, FromSingleFileMixin, LTXVideoLoraL
             num_inference_steps,
             device,
             timesteps=timesteps,
+            mu=mu
         )
         num_warmup_steps = max(len(timesteps) - num_inference_steps * self.scheduler.order, 0)
         self._num_timesteps = len(timesteps)
